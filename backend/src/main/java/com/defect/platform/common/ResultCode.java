@@ -29,6 +29,7 @@ public enum ResultCode {
     PROJECT_NOT_FOUND(2001, "项目不存在"),
     PROJECT_CODE_EXISTS(2002, "项目编码已存在"),
     PROJECT_MEMBER_EXISTS(2003, "该用户已是项目成员"),
+    PROJECT_NOT_MEMBER(2004, "非项目成员，无权操作"),
 
     // ---- 缺陷 3xxx ----
     DEFECT_NOT_FOUND(3001, "缺陷不存在"),

@@ -18,8 +18,21 @@ public enum DefectActionEnum {
     RETEST("RETEST", "复测"),
     CLOSE("CLOSE", "关闭缺陷"),
     REJECT("REJECT", "驳回缺陷"),
+    REOPEN("REOPEN", "重新打开"),
     COMMENT("COMMENT", "添加评论");
 
     private final String code;
     private final String desc;
+
+    /**
+     * 根据 code 获取中文描述，未匹配时返回原值
+     */
+    public static String descOf(String code) {
+        for (DefectActionEnum e : values()) {
+            if (e.getCode().equals(code)) {
+                return e.getDesc();
+            }
+        }
+        return code;
+    }
 }
