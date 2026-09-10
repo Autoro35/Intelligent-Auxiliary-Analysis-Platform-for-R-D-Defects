@@ -1,0 +1,105 @@
+# ============================================================
+# 轻量化研发缺陷全生命周期管理平台 - 主配置
+# 所有可配置项均通过环境变量覆盖，禁止硬编码
+# ============================================================
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: defect-platform
+
+  # 数据源（MySQL 8.0）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:defect_platform}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  # Redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
+      timeout: 3000ms
+
+  # RabbitMQ
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USERNAME:guest}
+    password: ${RABBIT_PASSWORD:guest}
+    virtual-host: ${RABBIT_VHOST:/}
+
+  # 文件上传
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+  # Jackson 全局时间格式（LocalDateTime 由 JacksonConfig 进一步处理）
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+
+# MyBatis-Plus
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.defect.platform.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    # 开发期打印 SQL，生产可改为 NoLoggingImpl
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      # 全局逻辑删除字段
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT 配置
+jwt:
+  # HS256 密钥需 >= 32 字节，生产环境务必通过环境变量覆盖
+  secret: ${JWT_SECRET:defect-platform-jwt-secret-key-please-change-in-prod-0123456789}
+  # token 有效期（秒），默认 24 小时
+  expiration: ${JWT_EXPIRATION:86400}
+  header: Authorization
+  prefix: "Bearer "
+
+# 初始化管理员账号（首次启动自动创建，密码生产环境务必覆盖）
+init:
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:admin123}
+    nickname: ${ADMIN_NICKNAME:系统管理员}
+
+# 文件上传配置
+file:
+  # 本地存储根目录
+  upload-dir: ${UPLOAD_DIR:./uploads}
+  # 单文件大小上限（字节）
+  max-size: 10485760
+
+# AI 能力配置（DeepSeek，阶段 5 使用）
+ai:
+  deepseek:
+    api-key: ${DEEPSEEK_API_KEY:}
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    model: ${DEEPSEEK_MODEL:deepseek-chat}
+
+# Chroma 向量库配置（阶段 5 使用）
+chroma:
+  host: ${CHROMA_HOST:localhost}
+  port: ${CHROMA_PORT:8000}
+
+logging:
+  level:
+    com.defect.platform: info

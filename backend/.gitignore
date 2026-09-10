@@ -1,0 +1,21 @@
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# 运行时产物
+uploads/
+logs/
+*.log
+
+# 系统
+.DS_Store
+Thumbs.db
