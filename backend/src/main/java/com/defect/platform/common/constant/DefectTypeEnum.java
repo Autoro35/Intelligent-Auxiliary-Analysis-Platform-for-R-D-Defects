@@ -18,4 +18,16 @@ public enum DefectTypeEnum {
 
     private final String code;
     private final String desc;
+
+    /**
+     * 根据 code 获取中文描述，未匹配时返回原值
+     */
+    public static String descOf(String code) {
+        for (DefectTypeEnum e : values()) {
+            if (e.getCode().equals(code)) {
+                return e.getDesc();
+            }
+        }
+        return code;
+    }
 }

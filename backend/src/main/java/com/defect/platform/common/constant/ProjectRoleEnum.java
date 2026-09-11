@@ -4,16 +4,16 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 缺陷严重程度枚举
+ * 项目内角色枚举（区别于系统全局角色 RoleEnum）
  */
 @Getter
 @AllArgsConstructor
-public enum DefectSeverityEnum {
+public enum ProjectRoleEnum {
 
-    BLOCKER("BLOCKER", "致命"),
-    CRITICAL("CRITICAL", "严重"),
-    MAJOR("MAJOR", "一般"),
-    MINOR("MINOR", "轻微");
+    OWNER("OWNER", "负责人"),
+    DEV("DEV", "开发"),
+    TESTER("TESTER", "测试"),
+    VIEWER("VIEWER", "访客");
 
     private final String code;
     private final String desc;
@@ -22,7 +22,7 @@ public enum DefectSeverityEnum {
      * 根据 code 获取中文描述，未匹配时返回原值
      */
     public static String descOf(String code) {
-        for (DefectSeverityEnum e : values()) {
+        for (ProjectRoleEnum e : values()) {
             if (e.getCode().equals(code)) {
                 return e.getDesc();
             }
