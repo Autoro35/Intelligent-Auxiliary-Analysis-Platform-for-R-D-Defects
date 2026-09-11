@@ -17,6 +17,7 @@ import com.defect.platform.entity.User;
 import com.defect.platform.mapper.DefectMapper;
 import com.defect.platform.mapper.KnowledgeMapper;
 import com.defect.platform.mapper.UserMapper;
+import com.defect.platform.service.KnowledgeRetrievalService;
 import com.defect.platform.service.KnowledgeService;
 import com.defect.platform.vo.KnowledgeVO;
 import com.defect.platform.vo.TagVO;
@@ -41,6 +42,8 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
 
     private final DefectMapper defectMapper;
     private final UserMapper userMapper;
+    /** 向量索引维护（尽力而为，向量库不可用时静默忽略，不影响知识库主流程） */
+    private final KnowledgeRetrievalService retrievalService;
 
     @Override
     public KnowledgeVO create(KnowledgeDTO dto) {
@@ -49,6 +52,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         knowledge.setViewCount(0);
         knowledge.setCreateBy(UserContext.getUserId());
         save(knowledge);
+        retrievalService.index(knowledge);
         log.info("新增知识: id={}, title={}", knowledge.getId(), knowledge.getTitle());
         return toVO(knowledge);
     }
@@ -63,7 +67,10 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         BeanUtil.copyProperties(dto, knowledge, "defectId");
         knowledge.setId(id);
         updateById(knowledge);
-        return toVO(getById(id));
+        Knowledge updated = getById(id);
+        // 正文变更后同步刷新向量，保证 RAG 检索到的是最新内容
+        retrievalService.index(updated);
+        return toVO(updated);
     }
 
     @Override
@@ -72,6 +79,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
             throw new BusinessException(ResultCode.KNOWLEDGE_NOT_FOUND);
         }
         removeById(id);
+        retrievalService.remove(id);
     }
 
     @Override
@@ -131,6 +139,7 @@ public class KnowledgeServiceImpl extends ServiceImpl<KnowledgeMapper, Knowledge
         knowledge.setViewCount(0);
         knowledge.setCreateBy(UserContext.getUserId());
         save(knowledge);
+        retrievalService.index(knowledge);
         log.info("沉淀知识: defectId={}, knowledgeId={}", defectId, knowledge.getId());
         return toVO(knowledge);
     }

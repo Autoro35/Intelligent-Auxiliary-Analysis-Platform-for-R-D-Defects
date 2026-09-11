@@ -202,12 +202,13 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
 
     @Override
     public void assertMember(Long projectId) {
-        if (isAdmin()) {
-            return;
-        }
+        // 项目存在性优先于管理员豁免：管理员同样不能对不存在的项目操作，避免产生孤儿数据
         Project project = getById(projectId);
         if (project == null) {
             throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
+        }
+        if (isAdmin()) {
+            return;
         }
         Long userId = UserContext.getUserId();
         if (project.getOwnerId() != null && project.getOwnerId().equals(userId)) {
