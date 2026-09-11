@@ -36,7 +36,8 @@ public enum ResultCode {
     DEFECT_STATUS_ILLEGAL(3002, "非法的状态流转"),
 
     // ---- 知识库 4xxx ----
-    KNOWLEDGE_NOT_FOUND(4001, "知识库条目不存在");
+    KNOWLEDGE_NOT_FOUND(4001, "知识库条目不存在"),
+    KNOWLEDGE_EXISTS(4002, "该缺陷已沉淀过知识");
 
     private final Integer code;
     private final String message;
