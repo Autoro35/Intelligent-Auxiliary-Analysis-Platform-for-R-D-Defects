@@ -37,7 +37,13 @@ public enum ResultCode {
 
     // ---- 知识库 4xxx ----
     KNOWLEDGE_NOT_FOUND(4001, "知识库条目不存在"),
-    KNOWLEDGE_EXISTS(4002, "该缺陷已沉淀过知识");
+    KNOWLEDGE_EXISTS(4002, "该缺陷已沉淀过知识"),
+
+    // ---- AI 能力 5xxx ----
+    AI_NOT_CONFIGURED(5001, "AI 服务未配置（缺少 DeepSeek API Key）"),
+    AI_CALL_FAILED(5002, "AI 服务调用失败，请稍后重试"),
+    AI_RESPONSE_INVALID(5003, "AI 返回内容格式异常，无法解析"),
+    VECTOR_STORE_UNAVAILABLE(5004, "向量库不可用");
 
     private final Integer code;
     private final String message;

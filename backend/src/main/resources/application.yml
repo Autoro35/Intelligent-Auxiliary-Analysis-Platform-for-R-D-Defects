@@ -88,17 +88,31 @@ file:
   # 单文件大小上限（字节）
   max-size: 10485760
 
-# AI 能力配置（DeepSeek，阶段 5 使用）
+# AI 能力配置（DeepSeek，OpenAI 兼容协议）
+# 未配置 api-key 时 AI 接口自动降级为本地规则引擎，功能仍可用（响应中 source=RULE）
 ai:
   deepseek:
     api-key: ${DEEPSEEK_API_KEY:}
     base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
+    # 连接/读取超时（毫秒）
+    timeout: ${DEEPSEEK_TIMEOUT:30000}
+    # 采样温度，缺陷判定类任务宜低以保证结果稳定
+    temperature: ${DEEPSEEK_TEMPERATURE:0.3}
+    # 单次回复最大 token 数
+    max-tokens: ${DEEPSEEK_MAX_TOKENS:1024}
 
-# Chroma 向量库配置（阶段 5 使用）
+# Chroma 向量库配置
+# 不可达时 RAG 检索自动降级为 t_knowledge 的 ngram 全文索引（响应中 retrievalMode=FULLTEXT）
 chroma:
   host: ${CHROMA_HOST:localhost}
   port: ${CHROMA_PORT:8000}
+  # Chroma 0.5+/1.x 使用 /api/v2，0.4.x 使用 /api/v1
+  api-path: ${CHROMA_API_PATH:/api/v2}
+  tenant: ${CHROMA_TENANT:default_tenant}
+  database: ${CHROMA_DATABASE:default_database}
+  collection: ${CHROMA_COLLECTION:defect_knowledge}
+  timeout: ${CHROMA_TIMEOUT:5000}
 
 logging:
   level:
