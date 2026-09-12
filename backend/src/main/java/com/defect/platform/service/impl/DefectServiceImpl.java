@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.defect.platform.common.PageResult;
 import com.defect.platform.common.ResultCode;
+import com.defect.platform.common.constant.CacheKeys;
 import com.defect.platform.common.constant.DefectActionEnum;
 import com.defect.platform.common.constant.DefectStatusEnum;
 import com.defect.platform.common.context.UserContext;
@@ -23,6 +24,7 @@ import com.defect.platform.mapper.DefectCommentMapper;
 import com.defect.platform.mapper.DefectLogMapper;
 import com.defect.platform.mapper.DefectMapper;
 import com.defect.platform.mapper.UserMapper;
+import com.defect.platform.service.CacheService;
 import com.defect.platform.service.DefectService;
 import com.defect.platform.service.ProjectService;
 import com.defect.platform.vo.DefectCommentVO;
@@ -34,10 +36,13 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 缺陷服务实现
@@ -52,6 +57,7 @@ public class DefectServiceImpl extends ServiceImpl<DefectMapper, Defect> impleme
     private final DefectCommentMapper commentMapper;
     private final DefectLogMapper logMapper;
     private final UserMapper userMapper;
+    private final CacheService cacheService;
 
     @Override
     public DefectVO create(DefectDTO dto) {
@@ -63,6 +69,7 @@ public class DefectServiceImpl extends ServiceImpl<DefectMapper, Defect> impleme
         defect.setReopenCount(0);
         save(defect);
         saveLog(defect.getId(), DefectActionEnum.CREATE.getCode(), null, defect.getStatus(), "创建缺陷");
+        evictStats();
         return toVO(defect);
     }
 
@@ -78,6 +85,7 @@ public class DefectServiceImpl extends ServiceImpl<DefectMapper, Defect> impleme
         defect.setId(id);
         updateById(defect);
         saveLog(id, DefectActionEnum.UPDATE.getCode(), defect.getStatus(), defect.getStatus(), "编辑缺陷");
+        evictStats();
         return toVO(getById(id));
     }
 
@@ -89,6 +97,7 @@ public class DefectServiceImpl extends ServiceImpl<DefectMapper, Defect> impleme
         }
         projectService.assertMember(defect.getProjectId());
         removeById(id);
+        evictStats();
     }
 
     @Override
@@ -123,7 +132,18 @@ public class DefectServiceImpl extends ServiceImpl<DefectMapper, Defect> impleme
                 .like(StrUtil.isNotBlank(keyword), Defect::getTitle, keyword)
                 .orderByDesc(Defect::getId);
         Page<Defect> defectPage = page(new Page<>(current, size), wrapper);
-        return PageResult.of(defectPage, d -> toVO(d));
+        // 一次性批量加载本页涉及的提交人/处理人，避免逐行查询（N+1）
+        Map<Long, User> userMap = loadUserMap(defectPage.getRecords());
+        return PageResult.of(defectPage, d -> toVO(d, userMap));
+    }
+
+    /** 收集一页缺陷涉及的全部用户 ID，一次查询取回 */
+    private Map<Long, User> loadUserMap(List<Defect> defects) {
+        Set<Long> ids = defects.stream()
+                .flatMap(d -> Stream.of(d.getReporterId(), d.getAssigneeId()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        return batchUsers(ids);
     }
 
     @Override
@@ -134,6 +154,7 @@ public class DefectServiceImpl extends ServiceImpl<DefectMapper, Defect> impleme
         }
         projectService.assertMember(defect.getProjectId());
         applyTransition(defect, dto);
+        evictStats();
         return toVO(getById(id));
     }
 
@@ -268,17 +289,37 @@ public class DefectServiceImpl extends ServiceImpl<DefectMapper, Defect> impleme
 
     // ---- 私有 ----
 
+    /** 单条场景（创建/更新/详情/流转）：只为这一条记录加载相关用户，一次查询即可 */
     private DefectVO toVO(Defect d) {
-        DefectVO vo = DefectVO.from(d);
+        Set<Long> ids = new HashSet<>();
         if (d.getReporterId() != null) {
-            User u = userMapper.selectById(d.getReporterId());
-            vo.setReporterName(u == null ? null : StrUtil.blankToDefault(u.getNickname(), u.getUsername()));
+            ids.add(d.getReporterId());
         }
         if (d.getAssigneeId() != null) {
-            User u = userMapper.selectById(d.getAssigneeId());
-            vo.setAssigneeName(u == null ? null : StrUtil.blankToDefault(u.getNickname(), u.getUsername()));
+            ids.add(d.getAssigneeId());
         }
+        return toVO(d, batchUsers(ids));
+    }
+
+    /** 批量场景：用户表由调用方预先批量加载，此处不再查库 */
+    private DefectVO toVO(Defect d, Map<Long, User> userMap) {
+        DefectVO vo = DefectVO.from(d);
+        vo.setReporterName(userName(d.getReporterId(), userMap));
+        vo.setAssigneeName(userName(d.getAssigneeId(), userMap));
         return vo;
+    }
+
+    private String userName(Long userId, Map<Long, User> userMap) {
+        if (userId == null) {
+            return null;
+        }
+        User u = userMap.get(userId);
+        return u == null ? null : StrUtil.blankToDefault(u.getNickname(), u.getUsername());
+    }
+
+    /** 缺陷变动后让统计缓存整体失效，避免看板读到旧数字 */
+    private void evictStats() {
+        cacheService.evictByPrefix(CacheKeys.STATS_PREFIX);
     }
 
     private DefectCommentVO toCommentVO(DefectComment c, Map<Long, User> userMap) {

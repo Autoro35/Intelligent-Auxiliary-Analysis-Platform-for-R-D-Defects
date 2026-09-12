@@ -1,0 +1,150 @@
+# ============================================================
+# 研发缺陷管理平台 - 一键启动
+#
+#   docker compose up -d --build     首次构建并启动
+#   docker compose logs -f backend   查看后端日志
+#   docker compose down              停止（保留数据卷）
+#   docker compose down -v           停止并清空数据（含数据库）
+#
+# 启动后访问 http://localhost:8888 ，默认账号 admin / admin123
+# ============================================================
+
+services:
+
+  # ---------------- 数据库 ----------------
+  mysql:
+    image: mysql:8.0
+    container_name: defect-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      MYSQL_DATABASE: ${DB_NAME:-defect_platform}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      # ngram 分词长度，t_knowledge 的中文全文索引依赖它
+      - --ngram_token_size=2
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 仅在数据卷为空（首次启动）时自动执行，重建库结构
+      - ./backend/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - defect-net
+
+  # ---------------- 缓存 ----------------
+  redis:
+    image: redis:7-alpine
+    container_name: defect-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - defect-net
+
+  # ---------------- 消息队列 ----------------
+  # 技术栈预留组件：当前版本业务代码尚未使用，
+  # 保留以便后续接入异步任务（如缺陷通知、向量索引异步重建）。
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: defect-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD:-guest}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "${RABBITMQ_PORT:-5673}:5672"
+      - "${RABBITMQ_UI_PORT:-15673}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - defect-net
+
+  # ---------------- 后端 ----------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: defect-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-defect_platform}
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USERNAME: ${RABBIT_USERNAME:-guest}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:-guest}
+      JWT_SECRET: ${JWT_SECRET:-defect-platform-jwt-secret-key-please-change-in-prod-0123456789}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      UPLOAD_DIR: /app/uploads
+      # AI 能力：留空则自动降级为本地规则引擎
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      # 向量库：留空/不可达则 RAG 检索自动降级为 MySQL 全文索引
+      CHROMA_HOST: ${CHROMA_HOST:-host.docker.internal}
+      CHROMA_PORT: ${CHROMA_PORT:-8000}
+      TZ: Asia/Shanghai
+    volumes:
+      - uploads-data:/app/uploads
+    ports:
+      - "${BACKEND_PORT:-8081}:8080"
+    networks:
+      - defect-net
+
+  # ---------------- 前端 ----------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: defect-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8888}:80"
+    networks:
+      - defect-net
+
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
+  uploads-data:
+
+networks:
+  defect-net:
+    driver: bridge

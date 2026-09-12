@@ -44,10 +44,10 @@ const roleTagType = computed(() => {
 })
 
 const roleTable = [
-  { role: '管理员 ADMIN', desc: '系统最高权限', permission: '全部功能，含用户列表、AI 状态自检、向量索引重建' },
+  { role: '管理员 ADMIN', desc: '系统最高权限', permission: '全部功能，含用户管理、AI 状态自检、向量索引重建' },
   { role: '测试 TESTER', desc: '提单与验证', permission: '项目/缺陷/知识库读写，可用全部 AI 能力' },
   { role: '开发 DEVELOPER', desc: '处理缺陷', permission: '项目/缺陷/知识库读写，可用全部 AI 能力' },
-  { role: '访客 GUEST', desc: '只读账号（注册默认角色）', permission: '仅可查看项目、缺陷、知识库与统计，可用 RAG 推荐' }
+  { role: '访客 GUEST', desc: '只读账号', permission: '仅可查看项目、缺陷、知识库与统计，可用 RAG 推荐' }
 ]
 
 onMounted(async () => {

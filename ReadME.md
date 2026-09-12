@@ -47,3 +47,39 @@
    用户提交缺陷时，自动识别描述完整性，提示补充复现步骤、环境信息、预期结果等关键字段，提升缺陷提交质量。
 4. **代码提交风险提示**
    关联Git提交记录时，分析提交的代码改动范围与描述，提示可能引入的缺陷风险，提醒测试人员重点关注。
+
+## 五、开发与部署
+
+| 文档 | 内容 |
+|---|---|
+| [docs/开发与部署文档.md](docs/开发与部署文档.md) | 环境搭建 / 配置说明 / 接口清单 / 状态机 / AI 降级设计 / 部署 / 常见问题 |
+| [ToDoList.md](ToDoList.md) | **待办与未验证事项**：Chroma 接入步骤、Docker 验证清单、其他待改进项 |
+| [Problem.md](Problem.md) | **开发问题与解决记录**：按阶段整理的问题排查与经验总结 |
+
+### 快速启动
+
+**Docker 一键启动（推荐）**
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+访问 http://localhost:8888 ，默认账号 `admin` / `admin123`。
+
+**本地开发**
+
+```bash
+mysql -uroot -p < backend/sql/schema.sql     # 初始化数据库
+
+cd backend  && mvn -DskipTests package && java -jar target/defect-platform-1.0.0.jar
+cd frontend && npm install && npm run dev     # http://localhost:5173
+```
+
+### 工程特性
+
+- **开箱即用不依赖外部 AI 服务**：未配置 DeepSeek Key 时自动降级为本地规则引擎；Chroma 未部署时 RAG 检索自动降级为 MySQL ngram 全文索引。响应中的 `source` 与 `retrievalMode` 字段会标明实际生效的路径。
+- **多项目数据隔离**：管理员可见全部，其余用户仅见自己负责或参与的项目；统计缓存的键带用户维度，避免跨用户串数据。
+- **统一响应与异常**：所有接口返回 `Result{code,message,data,timestamp}`，全局异常处理 + 参数校验 + 逻辑删除。
+- **两层鉴权**：JWT 拦截器负责认证，`@RequireRole` 注解切面负责授权，数据层再按项目成员二次校验。
+- **接口限流**：登录按 IP 限流防撞库，AI 接口按用户限流控制大模型调用成本。

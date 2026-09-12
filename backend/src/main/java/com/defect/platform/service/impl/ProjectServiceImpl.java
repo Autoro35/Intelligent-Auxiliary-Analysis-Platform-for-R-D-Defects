@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.defect.platform.common.PageResult;
 import com.defect.platform.common.ResultCode;
+import com.defect.platform.common.constant.CacheKeys;
 import com.defect.platform.common.constant.ProjectRoleEnum;
 import com.defect.platform.common.constant.RoleEnum;
 import com.defect.platform.common.context.UserContext;
@@ -18,6 +19,7 @@ import com.defect.platform.entity.User;
 import com.defect.platform.mapper.ProjectMapper;
 import com.defect.platform.mapper.ProjectMemberMapper;
 import com.defect.platform.mapper.UserMapper;
+import com.defect.platform.service.CacheService;
 import com.defect.platform.service.ProjectService;
 import com.defect.platform.vo.ProjectMemberVO;
 import com.defect.platform.vo.ProjectVO;
@@ -43,6 +45,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
 
     private final ProjectMemberMapper projectMemberMapper;
     private final UserMapper userMapper;
+    private final CacheService cacheService;
 
     @Override
     public ProjectVO create(ProjectDTO dto) {
@@ -114,6 +117,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         }
         assertOwner(id);
         removeById(id);
+        evictStats();
     }
 
     @Override
@@ -166,6 +170,8 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         member.setUserId(dto.getUserId());
         member.setRole(role);
         projectMemberMapper.insert(member);
+        // 成员变化会改变该用户可见的项目集合，统计缓存必须失效
+        evictStats();
     }
 
     @Override
@@ -177,6 +183,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         projectMemberMapper.delete(new LambdaQueryWrapper<ProjectMember>()
                 .eq(ProjectMember::getProjectId, projectId)
                 .eq(ProjectMember::getUserId, userId));
+        evictStats();
     }
 
     @Override
@@ -224,12 +231,13 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
 
     @Override
     public void assertOwner(Long projectId) {
-        if (isAdmin()) {
-            return;
-        }
+        // 与 assertMember 保持同一语义：先校验项目存在，再判断权限
         Project project = getById(projectId);
         if (project == null) {
             throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
+        }
+        if (isAdmin()) {
+            return;
         }
         if (project.getOwnerId() == null || !project.getOwnerId().equals(UserContext.getUserId())) {
             throw new BusinessException(ResultCode.FORBIDDEN);
@@ -279,6 +287,11 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
         vo.setRoleDesc(ProjectRoleEnum.descOf(m.getRole()));
         vo.setCreateTime(m.getCreateTime());
         return vo;
+    }
+
+    /** 项目或成员变动后让统计缓存整体失效 */
+    private void evictStats() {
+        cacheService.evictByPrefix(CacheKeys.STATS_PREFIX);
     }
 
     private Map<Long, User> batchUsers(Set<Long> ids) {
