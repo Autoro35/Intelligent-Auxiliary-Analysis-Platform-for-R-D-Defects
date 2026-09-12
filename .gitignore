@@ -1,0 +1,21 @@
+# 环境变量（含数据库密码 / JWT 密钥 / API Key，禁止提交）
+.env
+.env.local
+
+# 各子工程另见 backend/.gitignore 与 frontend/.gitignore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+logs/

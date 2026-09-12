@@ -1,6 +1,7 @@
 package com.defect.platform.controller;
 
 import com.defect.platform.common.Result;
+import com.defect.platform.common.annotation.RateLimit;
 import com.defect.platform.common.annotation.RequireRole;
 import com.defect.platform.common.constant.RoleEnum;
 import com.defect.platform.dto.AiClassifyDTO;
@@ -35,17 +36,23 @@ public class AiController {
 
     @PostMapping("/classify")
     @RequireRole({RoleEnum.ADMIN, RoleEnum.TESTER, RoleEnum.DEVELOPER})
+    @RateLimit(limit = 20, window = 60, dimension = RateLimit.Dimension.USER,
+            message = "AI 判定调用过于频繁，请稍后再试")
     public Result<AiClassifyVO> classify(@RequestBody AiClassifyDTO dto) {
         return Result.success(aiService.classify(dto));
     }
 
     @PostMapping("/recommend")
+    @RateLimit(limit = 20, window = 60, dimension = RateLimit.Dimension.USER,
+            message = "AI 推荐调用过于频繁，请稍后再试")
     public Result<AiRecommendVO> recommend(@RequestBody AiRecommendDTO dto) {
         return Result.success(aiService.recommend(dto));
     }
 
     @PostMapping("/complete-description")
     @RequireRole({RoleEnum.ADMIN, RoleEnum.TESTER, RoleEnum.DEVELOPER})
+    @RateLimit(limit = 20, window = 60, dimension = RateLimit.Dimension.USER,
+            message = "AI 补全调用过于频繁，请稍后再试")
     public Result<AiCompleteVO> completeDescription(@RequestBody AiCompleteDTO dto) {
         return Result.success(aiService.completeDescription(dto));
     }

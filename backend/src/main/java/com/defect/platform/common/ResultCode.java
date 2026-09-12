@@ -17,6 +17,7 @@ public enum ResultCode {
     UNAUTHORIZED(401, "未认证或登录已过期"),
     FORBIDDEN(403, "无权限访问"),
     NOT_FOUND(404, "资源不存在"),
+    TOO_MANY_REQUESTS(429, "请求过于频繁，请稍后重试"),
     ERROR(500, "系统内部错误"),
 
     // ---- 用户/认证 1xxx ----
@@ -24,6 +25,8 @@ public enum ResultCode {
     USER_NOT_FOUND(1002, "用户不存在"),
     PASSWORD_ERROR(1003, "用户名或密码错误"),
     ACCOUNT_DISABLED(1004, "账号已被禁用"),
+    USER_SELF_OPERATION(1005, "不能对自己执行该操作"),
+    LAST_ADMIN_PROTECTED(1006, "系统至少需要保留一名启用状态的管理员"),
 
     // ---- 项目 2xxx ----
     PROJECT_NOT_FOUND(2001, "项目不存在"),

@@ -3,15 +3,18 @@ package com.defect.platform.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import com.defect.platform.common.constant.CacheKeys;
 import com.defect.platform.common.constant.DefectPriorityEnum;
 import com.defect.platform.common.constant.DefectSeverityEnum;
 import com.defect.platform.common.constant.DefectStatusEnum;
 import com.defect.platform.common.constant.DefectTypeEnum;
+import com.defect.platform.common.context.UserContext;
 import com.defect.platform.entity.Defect;
 import com.defect.platform.entity.User;
 import com.defect.platform.mapper.DefectMapper;
 import com.defect.platform.mapper.KnowledgeMapper;
 import com.defect.platform.mapper.UserMapper;
+import com.defect.platform.service.CacheService;
 import com.defect.platform.service.ProjectService;
 import com.defect.platform.service.StatisticsService;
 import com.defect.platform.vo.MemberWorkloadVO;
@@ -23,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -38,19 +42,32 @@ import java.util.stream.Collectors;
 /**
  * 统计服务实现
  * <p>基于内存聚合：一次性加载可见项目的缺陷（仅必要列），避免多次 SQL；数据量对 10-30 人团队完全可控</p>
+ * <p>聚合结果按「用户 + 维度」缓存（Redis 不可用时自动退化为实时计算）；
+ * 缺陷/项目/知识库发生写操作时会整体失效，因此不存在读到脏数据的问题。</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class StatisticsServiceImpl implements StatisticsService {
 
+    /** 统计缓存有效期：写操作会主动失效，这里只是兜底 TTL */
+    private static final Duration STATS_TTL = Duration.ofMinutes(5);
+
     private final DefectMapper defectMapper;
     private final KnowledgeMapper knowledgeMapper;
     private final UserMapper userMapper;
     private final ProjectService projectService;
+    private final CacheService cacheService;
 
     @Override
     public StatOverviewVO overview() {
+        // 键带用户 ID：不同用户可见项目集合不同，共用键会串数据
+        Long userId = UserContext.getUserId();
+        return cacheService.get(CacheKeys.statsOverview(userId), STATS_TTL,
+                StatOverviewVO.class, this::loadOverview);
+    }
+
+    private StatOverviewVO loadOverview() {
         List<Defect> defects = loadAccessibleDefects();
 
         long total = defects.size();
@@ -80,6 +97,12 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     @Override
     public StatDistributionVO distribution() {
+        Long userId = UserContext.getUserId();
+        return cacheService.get(CacheKeys.statsDistribution(userId), STATS_TTL,
+                StatDistributionVO.class, this::loadDistribution);
+    }
+
+    private StatDistributionVO loadDistribution() {
         List<Defect> defects = loadAccessibleDefects();
         StatDistributionVO vo = new StatDistributionVO();
         vo.setStatus(groupBy(defects, Defect::getStatus, DefectStatusEnum.values()));
@@ -91,6 +114,14 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     @Override
     public List<StatTrendVO> trend(int days) {
+        // 天数先归一化再进缓存键，避免 ?days=30 与 ?days=99999 生成两份相同结果的缓存
+        int normalized = Math.max(1, Math.min(days, 365));
+        Long userId = UserContext.getUserId();
+        return cacheService.getList(CacheKeys.statsTrend(userId, normalized), STATS_TTL,
+                StatTrendVO.class, () -> loadTrend(normalized));
+    }
+
+    private List<StatTrendVO> loadTrend(int days) {
         int n = Math.max(1, Math.min(days, 365));
         LocalDate start = LocalDate.now().minusDays(n - 1);
         Set<Long> ids = accessibleProjectIds();
@@ -114,6 +145,12 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     @Override
     public List<MemberWorkloadVO> workload() {
+        Long userId = UserContext.getUserId();
+        return cacheService.getList(CacheKeys.statsWorkload(userId), STATS_TTL,
+                MemberWorkloadVO.class, this::loadWorkload);
+    }
+
+    private List<MemberWorkloadVO> loadWorkload() {
         List<Defect> defects = loadAccessibleDefects();
         Map<Long, List<Defect>> byAssignee = defects.stream()
                 .filter(d -> d.getAssigneeId() != null)
