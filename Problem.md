@@ -308,6 +308,54 @@ return PageResult.of(defectPage, d -> toVO(d, userMap));
 
 ---
 
+## 阶段 7 之后：分支合并与 main 收口
+
+### 8.1 🔧 任务假设与仓库实际状态不符（本地 main 严重落后）
+
+**背景**：收到任务「把 stage1~stage7 串起来合进 main」。
+
+**核实后的实际情况**：**7 个阶段（含 `frontend` 分支）早已通过 PR #1~#7 逐个合入 `origin/main`**，无需任何合并操作。`origin/main` 的提交历史中可见全部 7 条 merge 记录：
+
+```
+d0030fe Merge pull request #7 from Autoro35/stage7
+13e9b67 Merge pull request #6 from Autoro35/stage6
+b5a1f30 Merge pull request #5 from Autoro35/stage5
+ef94d15 Merge pull request #4 from Autoro35/stage4
+034e6a5 Merge pull request #3 from Autoro35/stage3
+...
+```
+
+**真正存在的问题**：**本地 `main` 停留在 `aa36f27`（早期仅有 README 的提交）**，与 `origin/main` 相差甚远。这是一个被低估的隐患——本地在旧 main 上操作会基于完全错误的历史基线；若期间有人直接往本地 main 提交再推送，会产生不必要的回退或冲突。
+
+**排查方法**（可直接复用）：
+
+```bash
+git fetch --all --prune
+
+# 逐分支判断是否已被 main 包含
+for b in stage1 stage2 ...; do
+  git merge-base --is-ancestor origin/$b origin/main \
+    && echo "$b 已合入" || echo "$b 未合入"
+done
+
+# 判断本地 main 是「纯落后」还是「已分叉」
+git merge-base --is-ancestor main origin/main \
+  && echo "纯落后，可快进" || echo "已分叉，需处理"
+```
+
+**处理**：
+1. `git merge --ff-only origin/main` 快进本地 main 到 `d0030fe`
+2. `git diff origin/stage7 main` 确认合并结果与最后一个阶段分支**内容完全一致**（无遗漏、无冲突残留）
+3. `git grep` 检查冲突标记（`<<<<<<<` / `>>>>>>>`），无残留
+4. **从合并后的 main 全量验证**：清空 `target/` 后后端 114 个源文件全量编译通过；清空 `dist/` 后前端构建通过；36 项端到端冒烟（认证/用户管理/项目/缺陷状态机全流程/附件/知识库/统计/AI 三接口）全部通过
+
+**经验**：
+- **动手合并前先核实合并状态**。`git merge-base --is-ancestor` 一行就能判断，成本极低，可避免大量无用功
+- **本地分支可能严重落后于远端**。多人协作或通过 PR 流程合并时，本地 `main` 不会自动更新，需要显式 `git fetch` + 快进
+- 「不需要做」也是一个有效结论，但**必须用可验证的方式确认**，而不是想当然地跳过
+
+---
+
 ## 附：经验总结
 
 | 类别 | 教训 |
@@ -321,3 +369,4 @@ return PageResult.of(defectPage, d -> toVO(d, userMap));
 | **缓存** | 涉及数据隔离的缓存，键必须包含隔离维度 |
 | **测试脚本** | 辅助函数本身出错会产生大量误导性失败；应尽早断言、失败即停 |
 | **进度管理** | 移除一个功能入口前，先确认替代路径已经存在 |
+| **分支管理** | 动手合并前用 `git merge-base --is-ancestor` 核实合并状态；本地 main 不会随 PR 自动更新，容易严重落后 |
