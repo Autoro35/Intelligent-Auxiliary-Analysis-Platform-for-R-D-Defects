@@ -4,7 +4,7 @@
       type="info"
       :closable="false"
       class="page-card"
-      title="新注册账号默认为「访客」，只能查看不能提单。在此把角色调整为「测试」或「开发」后，用户重新登录即可获得对应权限。"
+      title="新增成员请点「新建用户」并直接指定角色；对已有账号（如自行注册的访客）可在此调整角色，用户重新登录后生效。"
     />
 
     <el-card shadow="never">
@@ -19,6 +19,8 @@
         </el-select>
         <el-button type="primary" :icon="Search" @click="search">查询</el-button>
         <el-button :icon="Refresh" @click="reset">重置</el-button>
+        <div style="flex: 1"></div>
+        <el-button type="primary" :icon="Plus" @click="openCreate">新建用户</el-button>
       </div>
 
       <el-table v-loading="loading" :data="list" border stripe empty-text="暂无用户">
@@ -67,6 +69,34 @@
         />
       </div>
     </el-card>
+
+    <!-- 新建用户 -->
+    <el-dialog v-model="createDialog.visible" title="新建用户" width="520px" destroy-on-close>
+      <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="90px">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="createForm.username" placeholder="4-20 位，登录账号" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="createForm.password" type="password" show-password placeholder="6-32 位" />
+        </el-form-item>
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="createForm.nickname" placeholder="选填，默认与用户名相同" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="createForm.email" placeholder="选填" />
+        </el-form-item>
+        <el-form-item label="角色" prop="role">
+          <el-select v-model="createForm.role" style="width: 100%">
+            <el-option v-for="item in ROLE" :key="item.code" :label="item.label" :value="item.code" />
+          </el-select>
+          <div class="form-tip">直接指定角色，用户首次登录即具备对应权限</div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialog.visible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitCreate">确定</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 编辑用户 -->
     <el-dialog v-model="dialog.visible" title="编辑用户" width="520px" destroy-on-close>
@@ -124,8 +154,8 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Search } from '@element-plus/icons-vue'
-import { listUsers, updateUser, resetUserPassword, deleteUser } from '@/api/user'
+import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { listUsers, createUser, updateUser, resetUserPassword, deleteUser } from '@/api/user'
 import { useUserStore } from '@/stores/user'
 import { ROLE } from '@/constants/enums'
 import { orDash } from '@/utils/format'
@@ -138,6 +168,22 @@ const list = ref([])
 const total = ref(0)
 
 const query = reactive({ current: 1, size: 10, keyword: '', role: null, status: null })
+
+const createFormRef = ref()
+const createDialog = reactive({ visible: false })
+const createForm = reactive({ username: '', password: '', nickname: '', email: '', role: 'TESTER' })
+const createRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 4, max: 20, message: '用户名长度需在 4-20 位之间', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 32, message: '密码长度需在 6-32 位之间', trigger: 'blur' }
+  ],
+  email: [{ type: 'email', message: '邮箱格式不正确', trigger: 'blur' }],
+  role: [{ required: true, message: '请选择角色', trigger: 'change' }]
+}
 
 const formRef = ref()
 const dialog = reactive({ visible: false, id: null })
@@ -205,6 +251,34 @@ function search() {
 function reset() {
   Object.assign(query, { current: 1, keyword: '', role: null, status: null })
   load()
+}
+
+function openCreate() {
+  Object.assign(createForm, { username: '', password: '', nickname: '', email: '', role: 'TESTER' })
+  createDialog.visible = true
+}
+
+async function submitCreate() {
+  try {
+    await createFormRef.value.validate()
+  } catch (e) {
+    return
+  }
+  submitting.value = true
+  try {
+    await createUser({
+      username: createForm.username,
+      password: createForm.password,
+      nickname: createForm.nickname || undefined,
+      email: createForm.email || undefined,
+      role: createForm.role
+    })
+    ElMessage.success('创建成功')
+    createDialog.visible = false
+    load()
+  } finally {
+    submitting.value = false
+  }
 }
 
 function openEdit(row) {

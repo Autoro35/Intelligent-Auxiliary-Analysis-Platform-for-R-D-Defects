@@ -231,12 +231,13 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project> impl
 
     @Override
     public void assertOwner(Long projectId) {
-        if (isAdmin()) {
-            return;
-        }
+        // 与 assertMember 保持同一语义：先校验项目存在，再判断权限
         Project project = getById(projectId);
         if (project == null) {
             throw new BusinessException(ResultCode.PROJECT_NOT_FOUND);
+        }
+        if (isAdmin()) {
+            return;
         }
         if (project.getOwnerId() == null || !project.getOwnerId().equals(UserContext.getUserId())) {
             throw new BusinessException(ResultCode.FORBIDDEN);

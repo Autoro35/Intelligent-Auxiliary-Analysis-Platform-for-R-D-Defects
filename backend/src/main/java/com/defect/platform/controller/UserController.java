@@ -4,6 +4,7 @@ import com.defect.platform.common.PageResult;
 import com.defect.platform.common.Result;
 import com.defect.platform.common.annotation.RequireRole;
 import com.defect.platform.common.constant.RoleEnum;
+import com.defect.platform.dto.RegisterDTO;
 import com.defect.platform.dto.UserPasswordDTO;
 import com.defect.platform.dto.UserUpdateDTO;
 import com.defect.platform.service.UserService;
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +42,18 @@ public class UserController {
                                            @RequestParam(required = false) String role,
                                            @RequestParam(required = false) Integer status) {
         return Result.success(userService.list(current, size, keyword, role, status));
+    }
+
+    /**
+     * 管理员直接建号
+     * <p>复用注册逻辑（用户名唯一性校验、BCrypt 加密、角色合法性校验），
+     * 与公开注册的区别仅在于：需要管理员身份，且不受注册接口的 IP 限流约束。</p>
+     * <p>role 缺省为 GUEST，管理员可在请求中直接指定目标角色，免去「先注册再改角色」两步。</p>
+     */
+    @PostMapping
+    @RequireRole(RoleEnum.ADMIN)
+    public Result<UserVO> create(@Valid @RequestBody RegisterDTO dto) {
+        return Result.success("创建成功", userService.register(dto));
     }
 
     @PutMapping("/{id}")

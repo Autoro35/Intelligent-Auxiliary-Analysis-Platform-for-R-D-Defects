@@ -5,6 +5,11 @@ export function listUsers(params) {
   return request.get('/users', { params })
 }
 
+/** 管理员直接建号（可同时指定角色，仅管理员） */
+export function createUser(data) {
+  return request.post('/users', data)
+}
+
 /** 更新用户信息（昵称/邮箱/角色/状态，仅管理员） */
 export function updateUser(id, data) {
   return request.put(`/users/${id}`, data)
