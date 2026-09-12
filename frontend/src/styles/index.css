@@ -1,0 +1,103 @@
+/* 全局基础样式 */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', Arial, sans-serif;
+  font-size: 14px;
+  color: #303133;
+  background-color: #f0f2f5;
+}
+
+/* 页面通用容器 */
+.page-container {
+  padding: 16px;
+}
+
+.page-card {
+  margin-bottom: 16px;
+}
+
+/* 列表页顶部筛选区 */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filter-bar .el-input,
+.filter-bar .el-select {
+  width: 200px;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* 详情页字段行 */
+.detail-item {
+  display: flex;
+  padding: 8px 0;
+  border-bottom: 1px dashed #ebeef5;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  width: 100px;
+  flex-shrink: 0;
+  color: #909399;
+}
+
+.detail-value {
+  flex: 1;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* 多行文本展示 */
+.pre-wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
+}
+
+.text-muted {
+  color: #909399;
+}
+
+.mb-8 {
+  margin-bottom: 8px;
+}
+
+.mb-16 {
+  margin-bottom: 16px;
+}
+
+.mt-16 {
+  margin-top: 16px;
+}
