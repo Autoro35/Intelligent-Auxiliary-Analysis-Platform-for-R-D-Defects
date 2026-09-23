@@ -35,7 +35,13 @@
         <el-button v-if="userStore.canWrite" type="primary" :icon="Plus" @click="openCreate">新增知识</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="list" border stripe empty-text="暂无知识条目">
+      <el-table v-loading="loading" :data="list" border stripe>
+        <!-- 知识库为全局共享，不涉及数据权限，空态只需给出下一步指引 -->
+        <template #empty>
+          <el-empty :image-size="90" description="暂无知识条目，可将已解决的缺陷一键沉淀为知识，或点击「新增知识」创建">
+            <el-button v-if="userStore.canWrite" type="primary" :icon="Plus" @click="openCreate">新增知识</el-button>
+          </el-empty>
+        </template>
         <el-table-column prop="id" label="ID" width="70" align="center" />
         <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">

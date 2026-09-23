@@ -21,7 +21,13 @@
         <el-button v-if="userStore.canWrite" type="primary" :icon="Plus" @click="goCreate">新建缺陷</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="list" border stripe empty-text="暂无缺陷">
+      <el-table v-loading="loading" :data="list" border stripe>
+        <!-- 空态区分两种原因：没有可见项目（数据权限导致） vs 有项目但当前筛选无结果 -->
+        <template #empty>
+          <el-empty :image-size="90" :description="emptyDescription">
+            <el-button v-if="userStore.canWrite && projects.length" type="primary" :icon="Plus" @click="goCreate">新建缺陷</el-button>
+          </el-empty>
+        </template>
         <el-table-column prop="id" label="ID" width="70" align="center" />
         <el-table-column prop="title" label="缺陷标题" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
@@ -80,7 +86,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
@@ -107,6 +113,24 @@ const query = reactive({
   type: null,
   priority: null,
   keyword: ''
+})
+
+/** 是否处于筛选状态，用于区分「筛选无结果」与「确实没有数据」 */
+const hasFilter = computed(() =>
+  !!(query.status || query.type || query.priority || query.keyword || query.projectId)
+)
+
+/**
+ * 空态文案：缺陷可见范围由「可访问项目」决定。
+ * 没有任何可访问项目时，空列表是数据权限的正常结果，必须与「筛选无结果」区分开。
+ */
+const emptyDescription = computed(() => {
+  if (!projects.value.length) {
+    return userStore.isAdmin
+      ? '暂无缺陷。请先创建项目并添加成员，再提交缺陷'
+      : '你还没有加入任何项目，因此看不到缺陷。请联系项目负责人或管理员将你添加为项目成员'
+  }
+  return hasFilter.value ? '当前筛选条件下没有缺陷，可尝试重置查询条件' : '暂无缺陷，可点击「新建缺陷」提交'
 })
 
 async function load() {

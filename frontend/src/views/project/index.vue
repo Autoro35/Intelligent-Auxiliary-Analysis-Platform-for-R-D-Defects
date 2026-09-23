@@ -9,7 +9,14 @@
         <el-button v-if="userStore.canWrite" type="primary" :icon="Plus" @click="openCreate">新建项目</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="list" border stripe empty-text="暂无项目">
+      <el-table v-loading="loading" :data="list" border stripe>
+        <!-- 空态区分「确实是空」与「没被加进任何项目」：后者是多项目隔离的正常结果，
+             若只显示「暂无项目」，用户会误以为系统故障 -->
+        <template #empty>
+          <el-empty :image-size="90" :description="emptyDescription">
+            <el-button v-if="userStore.isAdmin" type="primary" :icon="Plus" @click="openCreate">新建项目</el-button>
+          </el-empty>
+        </template>
         <el-table-column prop="id" label="ID" width="70" align="center" />
         <el-table-column prop="name" label="项目名称" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
@@ -93,7 +100,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
@@ -128,6 +135,17 @@ function canManage(row) {
   if (userStore.isAdmin) return true
   return !!row.ownerId && row.ownerId === userStore.userInfo?.id
 }
+
+/**
+ * 空态文案：可见项目 = 我负责的 + 我加入的（管理员看全部）。
+ * 因此「列表为空」对非管理员只意味着「没被加进任何项目」，必须说清楚，
+ * 否则用户会误判为系统故障。管理员侧顺带提醒建完项目要加成员。
+ */
+const emptyDescription = computed(() =>
+  userStore.isAdmin
+    ? '暂无项目。点击「新建项目」创建，创建后请记得添加项目成员'
+    : '你还没有加入任何项目。请联系项目负责人或管理员，将你添加为项目成员'
+)
 
 async function load() {
   loading.value = true
